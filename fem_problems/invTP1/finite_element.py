@@ -15,20 +15,25 @@ class PoissonFEM(object):
         self.pi = fe.Constant(np.pi)
     
     def _initialize_problem(self):
-        return fe.VectorFunctionSpace(self.mesh, 'P', 1, dim=self.num_eq)
+        V_el = fe.FiniteElement('Lagrange', self.mesh.ufl_cell(), 1)
+        V = fe.FunctionSpace(self.mesh, V_el)
+        return V
     
     def _inner_product(self):
         u = fe.TestFunction(self.V)
         v = fe.TrialFunction(self.V)
-        return fe.assemble(fe.inner(fe.grad(u[0]), fe.grad(v[0])) * fe.dx + fe.inner(fe.grad(u[1]), fe.grad(v[1])) * fe.dx)
+        return fe.assemble(fe.inner(fe.grad(u), fe.grad(v))*fe.dx)
     
-    def _boundary_cond(self, mu, t_point):
+    def _boundary(self, mu):
         u_D = fe.Expression(
             "var1 * x[0] * cos(var2 * pi * x[1]) * sin(var3 * pi * x[2])",
             degree=3,
-            var1=mu[0], var2=mu[1], var3=mu[2], pi=self.pi
+            var1=mu[0], var2=mu[1], var3=mu[2], pi=self.pi,
         )
-        return u_D
+        bc = fe.DirichletBC(self.V, u_D, fe.DomainBoundary())
+        bcs = []
+        bcs.append(bc)
+        return bcs
     
     def _problem_forms(self, mu):
         u = fe.TrialFunction(self.V)
@@ -44,11 +49,9 @@ class PoissonFEM(object):
         return a, f
 
     def solve_fem(self, mu):
-        u_D = self._boundary_cond(mu)
-        bc = fe.DirichletBC(self.V, u_D, fe.DomainBoundary())
-        bcs = []
-        bcs.append(bc)
+        self._mu = mu
         a, f = self._problem_forms(mu)
+        bcs = self._boundary(mu)
         A, b = fe.assemble_system(a, f, bcs)
         solution = fe.Function(self.V)
         fe.solve(A, solution.vector(), b)
@@ -69,25 +72,15 @@ class PoissonFEM(object):
         u_num = np.array(u.vector().get_local())
         self._real_sol = u_num
         return u_num, u
-
+    
     @staticmethod
-    def _compute_error_matrix(approx, exact, text):
-        err_a = np.max(np.linalg.norm(approx - exact, axis=1))
-        err_r = err_a / np.max(np.linalg.norm(exact, axis=1))
+    def compute_error(approx, exact, text=True):
+        err_a = np.linalg.norm(approx-exact)
+        err_r = err_a / np.linalg.norm(exact)
         if text:
             print(f"Errore Assoluto: {err_a:.4e}")
             print(f"Errore Relativo: {err_r:.4e}")
         return err_a, err_r
-    
-    def compute_error(self, lst_approx, lst_exact, text=True):
-        lst_err_a, lst_err_r = [], []
-        for i in range(self.num_eq):
-            if text:
-                print(f"ERRORI EQUAZIONE {i+1}")
-            err_a, err_r = self._compute_error_matrix(lst_approx[i], lst_exact[i], text)
-            lst_err_a.append(err_a)
-            lst_err_r.append(err_r)
-        return lst_err_a, lst_err_r
     
     @property
     def sol(self):
