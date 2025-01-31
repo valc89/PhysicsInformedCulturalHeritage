@@ -42,10 +42,12 @@ class PODReduction(object):
     
     def load_reduction(self, directory, filename):
         print("Start LOADING REDUCTION...", end="")
-        self.Z = rb.backends.dolfin.BasisFunctionsMatrix(self.fem_p.V)
-        self.Z.init("u")
-        self.Z.load(directory=directory, filename=filename)
+        self._Z = rb.backends.dolfin.BasisFunctionsMatrix(self.fem_p.V)
+        self._Z.init("u")
+        self._Z.load(directory=directory, filename=filename)
         self._eigenvalues, self._basis_functions, self._num_basis = None, None, None
+        with open(directory+filename+".length") as fp:
+            self._num_basis = int(fp.readline())
         self._training_set = None
         self._testing_set = None
         print("...End LOADING REDUCTION")
