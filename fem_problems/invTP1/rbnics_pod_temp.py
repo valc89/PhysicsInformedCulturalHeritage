@@ -9,7 +9,7 @@ from typing import List
 from statistics import mean
 from tabulate import tabulate
 from collections import defaultdict
-from finite_element import PoissonFEM
+from fem_problems.invTP1.finite_element import PoissonFEM
 
 class PoissonPOD(object):
 
