@@ -1,5 +1,3 @@
-import os
-
 INV_PATH = "inverse/"
 DRT_PATH = "direct/"
 TP1_PATH = "tp1/"

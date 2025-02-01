@@ -114,45 +114,48 @@ class Blend2Mesh(Blender):
         # Acquire location, scale, and rotation
         tr_x, tr_y, tr_z = copy(el["location"])
         sc_x, sc_y, sc_z = copy(el["scale"])
-        rot_x, rot_y, rot_z = copy(el["rotation"])  # Angoli di rotazione (in radianti)
+        rot_x, rot_y, rot_z = np.radians(copy(el["rotation"]))  # Angoli di rotazione (in radianti)
 
-        # Calcola la matrice di rotazione totale
-        rot_matrix_x = np.array([
-            [1, 0, 0],
-            [0, np.cos(rot_x), -np.sin(rot_x)],
-            [0, np.sin(rot_x), np.cos(rot_x)]
-        ])
-        
-        rot_matrix_y = np.array([
-            [np.cos(rot_y), 0, np.sin(rot_y)],
-            [0, 1, 0],
-            [-np.sin(rot_y), 0, np.cos(rot_y)]
-        ])
-        
-        rot_matrix_z = np.array([
-            [np.cos(rot_z), -np.sin(rot_z), 0],
-            [np.sin(rot_z), np.cos(rot_z), 0],
-            [0, 0, 1]
+        # Matrici di rotazione attorno agli assi X, Y e Z
+        Rx = np.array([
+            [1, 0, 0, 0],
+            [0, np.cos(rot_x), -np.sin(rot_x), 0],
+            [0, np.sin(rot_x), np.cos(rot_x), 0],
+            [0, 0, 0, 1]
         ])
 
-        # Moltiplica le matrici per ottenere la rotazione complessiva
-        rotation_matrix = rot_matrix_z @ rot_matrix_y @ rot_matrix_x
+        Ry = np.array([
+            [np.cos(rot_y), 0, np.sin(rot_y), 0],
+            [0, 1, 0, 0],
+            [-np.sin(rot_y), 0, np.cos(rot_y), 0],
+            [0, 0, 0, 1]
+        ])
+
+        Rz = np.array([
+            [np.cos(rot_z), -np.sin(rot_z), 0, 0],
+            [np.sin(rot_z), np.cos(rot_z), 0, 0],
+            [0, 0, 1, 0],
+            [0, 0, 0, 1]
+        ])
+
+        # Matrice di trasformazione totale (T * Rz * Ry * Rx)
+        R = Rz @ Ry @ Rx
 
         lst_tags_points = []
         for ptx in el["vertices"]:
             # Scala il vertice
-            scaled_ptx = np.array([sc_x * ptx[0], sc_y * ptx[1], sc_z * ptx[2]])
+            p = np.array([ptx[0], ptx[1], ptx[2], 1])
             
             # Ruota il vertice
-            rotated_ptx = rotation_matrix @ scaled_ptx
-            
-            # Trasla il vertice
-            final_ptx = rotated_ptx + np.array([tr_x, tr_y, tr_z])
+            final_ptx = R @ p
             
             # Aggiungi il punto a GMSH
             lst_tags_points.append(
                 gmsh.model.occ.addPoint(
-                    final_ptx[0], final_ptx[1], final_ptx[2], meshSize=lc
+                    final_ptx[0] + tr_x + sc_x,
+                    final_ptx[1] + tr_x + sc_x,
+                    final_ptx[2] + tr_x + sc_x,
+                    meshSize=lc
                 )
             )
         return lst_tags_points
