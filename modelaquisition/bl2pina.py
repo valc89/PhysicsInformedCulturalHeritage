@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 
 from copy import copy
 
+from modelaquisition.acquisition.my_union import MyUnion
 from modelaquisition.acquisition.blender import Blender
 from modelaquisition.acquisition.face import Face
 from modelaquisition.acquisition.internal_face import InternalFace
@@ -12,7 +13,7 @@ from modelaquisition.acquisition.volume import VolumeAcquisition
 from modelaquisition.acquisition.temporal_blender import TemporalBlender
 
 from pina import LabelTensor
-from pina.geometry import Union
+from pina.geometry import Location, Union
 
 torch.set_default_dtype(torch.float64)
 
@@ -43,7 +44,7 @@ class Blend2Pina(Blender):
         if self.len_lst == 1:
             return self.single_obj_lst[0].boundary()
         else:
-            return Union([el.boundary() for el in self.single_obj_lst])
+            return MyUnion([el.boundary() for el in self.single_obj_lst], [el for el in self.single_obj_lst])
     
     def intern(self, time_interval = None):
         if time_interval == None:

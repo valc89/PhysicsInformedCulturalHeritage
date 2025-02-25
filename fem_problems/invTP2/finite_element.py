@@ -70,8 +70,8 @@ class SystemParabolicFEM(object):
 
         exp_f = fe.Expression(
             (
-                "exp(var1*t)",
-                "exp(var1*t) - 2 * (var2 + var3 + 1)"
+                "var1*exp(var1*t)",
+                "var1*exp(var1*t) - 2 * (var2 + var3 + 1)"
             ),
             degree=3,
             var1 = mu[0], var2 = mu[1], var3=mu[2], t=t_point

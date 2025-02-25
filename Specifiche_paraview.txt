@@ -1,0 +1,17 @@
+ROM:
+title: Reduced Solution
+title_font: 24 - B
+colorbar lenght: 0.95
+draw data range labels: %-#6.3e
+
+FOM:
+title: Full-Order Solution
+title_font: 24 - B
+colorbar lenght: 0.95
+draw data range labels: %-#6.3e
+
+ERR_REL:
+title: Relative Error
+title_font: 24 - B
+colorbar lenght: 0.95
+draw data range labels: %-#6.3e

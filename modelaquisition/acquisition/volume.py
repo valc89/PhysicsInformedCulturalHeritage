@@ -17,15 +17,27 @@ class VolumeAcquisition(Location):
         self.normals = self._normals_in_lt()
         self.bars = self._bars_in_lt()
     
-    def is_inside(self, point, check_border=False):
+    def is_inside(self, point, check_border=False, v_k = 5):
         distances = torch.norm(point.tensor - self.bars.tensor, dim=1)
-        _, idx = torch.topk(distances, k=3, largest=False)
+        _, idx = torch.topk(distances, k=v_k, largest=False)
         direction_slope = []
         k = []
         for i in range(idx.shape[0]):
             direction_slope.append(point - self.bars[idx[i]])
             k.append(torch.dot(direction_slope[i].tensor.squeeze(), self.normals[idx[i]].tensor.squeeze()))
         if all([k1 < 0 for k1 in k]):
+            return True
+        return False
+    
+    def is_inside_bound(self, point, check_border=False, v_k = 5):
+        distances = torch.norm(point.tensor - self.bars.tensor, dim=1)
+        _, idx = torch.topk(distances, k=v_k, largest=False)
+        direction_slope = []
+        k = []
+        for i in range(idx.shape[0]):
+            direction_slope.append(point - self.bars[idx[i]])
+            k.append(torch.dot(direction_slope[i].tensor.squeeze(), self.normals[idx[i]].tensor.squeeze()))
+        if all([k1 <= 0 for k1 in k]):
             return True
         return False
 
