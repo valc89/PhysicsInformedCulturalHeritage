@@ -202,7 +202,11 @@ class Msh2Xdmf(object):
                 else:
                     raise ValueError("Numero di steps temporali non corrisponde al numero di soluzioni.")
             else:
-                self._add_solution_time(solution_steps, add_info, "Vector", len(solution_steps), solution_name, steps)
+                if solution_steps[0].shape[1] == len(steps):
+                    print("Aggiunta soluzione temporale e vettoriale")
+                    self._add_solution_time(solution_steps, add_info, "Vector", len(solution_steps), solution_name, steps)
+                else:
+                    raise ValueError("Numero di steps temporali non corrisponde al numero di soluzioni.")
 
     
     def _add_solution_static(self, solution_step, add_info, attribute, leng_input, solution_name="solution"):
