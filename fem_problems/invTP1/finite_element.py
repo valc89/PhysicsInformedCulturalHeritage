@@ -58,6 +58,16 @@ class PoissonFEM(object):
         num_sol = np.array(solution.vector().get_local())
         return num_sol, solution
     
+    def solve_online_fem(self, mu):
+        self._mu = mu
+        a, f = self._problem_forms(mu)
+        bcs = self._boundary(mu)
+        A, b = fe.assemble_system(a, f, bcs)
+        solution = fe.Function(self.V)
+        fe.solve(A, solution.vector(), b)
+        num_sol = np.array(solution.compute_vertex_values(self.mesh))
+        return num_sol, solution
+    
     def _exact_exp(self, mu):
         exact_exp = fe.Expression(
             "var1 * x[0] * cos(var2 * pi * x[1]) * sin(var3 * pi * x[2])",
@@ -70,6 +80,13 @@ class PoissonFEM(object):
         u = fe.Function(self.V)
         u.interpolate(self._exact_exp(mu))
         u_num = np.array(u.vector().get_local())
+        self._real_sol = u_num
+        return u_num, u
+    
+    def exact_solution_online(self, mu):
+        u = fe.Function(self.V)
+        u.interpolate(self._exact_exp(mu))
+        u_num = np.array(u.compute_vertex_values(self.mesh))
         self._real_sol = u_num
         return u_num, u
     

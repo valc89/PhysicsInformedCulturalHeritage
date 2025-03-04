@@ -124,6 +124,19 @@ class TemporalPOD(object):
             lst_solutions.append(sol)
         return lst_solution_matrix, lst_solutions
     
+    def solve_online_rom(self, mu, N):
+        t_0, T = self.fem_p.time_interval
+        h, u_n, lst_solution_matrix = self.fem_p._initialize_fem_problem(mu, t_0, T)
+        lst_solutions = []
+        for step in range(1, self.fem_p.temp_points):
+            sol = self._single_step(mu, step, h, u_n, N)
+            sol_num = np.array(sol.compute_vertex_values(self.fem_p.mesh))
+            for i in range(self.fem_p.num_eq):
+                lst_solution_matrix[i][:, step] = sol_num[i*self.fem_p.n_mesh_p:(i+1)*self.fem_p.n_mesh_p]
+            u_n.assign(sol)
+            lst_solutions.append(sol)
+        return lst_solution_matrix, lst_solutions
+    
     def error_analysis(self):
         error = defaultdict(dict)
         output_error = defaultdict(dict)

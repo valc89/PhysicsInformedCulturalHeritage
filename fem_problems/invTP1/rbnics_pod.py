@@ -72,6 +72,40 @@ class PODReduction(object):
         sol = self.Z[:N]*reduced_solution
         sol_num = np.array(sol.vector().get_local())
         return sol_num, sol
+    
+    def solve_rom(self, mu, N):
+        a, f = self.fem_p._problem_forms(mu)
+        bcs = self.fem_p._boundary(mu)
+        A, b = fe.assemble_system(a, f, bcs)
+        reduced_A = rb.backends.dolfin.transpose(self.Z[:N])*A*self.Z[:N]
+        reduced_b = rb.backends.dolfin.transpose(self.Z[:N])*b
+        reduced_solution = rb.backends.online.numpy.Function(N)
+        reduced_solver = rb.backends.online.numpy.LinearSolver(
+            reduced_A,
+            reduced_solution,
+            reduced_b
+        )
+        reduced_solver.solve()
+        sol = self.Z[:N]*reduced_solution
+        sol_num = np.array(sol.vector().get_local())
+        return sol_num, sol
+    
+    def solve_online_rom(self, mu, N):
+        a, f = self.fem_p._problem_forms(mu)
+        bcs = self.fem_p._boundary(mu)
+        A, b = fe.assemble_system(a, f, bcs)
+        reduced_A = rb.backends.dolfin.transpose(self.Z[:N])*A*self.Z[:N]
+        reduced_b = rb.backends.dolfin.transpose(self.Z[:N])*b
+        reduced_solution = rb.backends.online.numpy.Function(N)
+        reduced_solver = rb.backends.online.numpy.LinearSolver(
+            reduced_A,
+            reduced_solution,
+            reduced_b
+        )
+        reduced_solver.solve()
+        sol = self.Z[:N]*reduced_solution
+        sol_num = np.array(sol.compute_vertex_values(self.fem_p.mesh))
+        return sol_num, sol
 
     def plot_eigenvalues(self, total = True, save=True, filename="plot_eig.png"):
         y = np.array(self.eigenvalues)

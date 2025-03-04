@@ -104,6 +104,19 @@ class SystemParabolicFEM(object):
             lst_solutions.append(sol)
         return lst_solution_matrix, lst_solutions
     
+    def solve_online_fem(self, mu):
+        t_0, T = self.time_interval
+        h, u_n, lst_solution_matrix = self._initialize_fem_problem(mu, t_0, T)
+        lst_solutions = []
+        for step in range(1, self.temp_points):
+            sol = self._single_step(mu, step, h, u_n)
+            num_sol = np.array(sol.compute_vertex_values(self.mesh))
+            for i in range(self.num_eq):
+                lst_solution_matrix[i][:, step] = num_sol[i*self.n_mesh_p:(i+1)*self.n_mesh_p]
+            u_n.assign(sol)
+            lst_solutions.append(sol)
+        return lst_solution_matrix, lst_solutions
+    
     def _exact_exp(self, mu, t_point):
         exact_exp = fe.Expression(
             (
@@ -128,6 +141,24 @@ class SystemParabolicFEM(object):
             u.interpolate(self._exact_exp(mu, t_point))
             lst_functions.append(u)
             u_num = np.array(u.vector().get_local())
+            for i in range(self.num_eq):
+                lst_exact_matrix[i][:, step] = u_num[i*self.n_mesh_p:(i+1)*self.n_mesh_p]
+        self._real_sol = lst_exact_matrix
+        return lst_exact_matrix, lst_functions
+    
+    def exact_solution_online(self, mu):
+        h = 1 / (self.temp_points - 1)
+        lst_functions = []
+        lst_exact_matrix = []
+        for i in range(self.num_eq):
+            lst_exact_matrix.append(np.zeros((self.mesh.coordinates().shape[0], self.temp_points)))
+        u = fe.Function(self.V)
+        lst_functions.append(u)
+        for step in range(self.temp_points):
+            t_point = h*step
+            u.interpolate(self._exact_exp(mu, t_point))
+            lst_functions.append(u)
+            u_num = np.array(u.compute_vertex_values(self.mesh))
             for i in range(self.num_eq):
                 lst_exact_matrix[i][:, step] = u_num[i*self.n_mesh_p:(i+1)*self.n_mesh_p]
         self._real_sol = lst_exact_matrix
