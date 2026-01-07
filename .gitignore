@@ -4,3 +4,6 @@
 *.csv
 *.pkl
 *.pth
+
+**/lightning_logs/
+**/__pycache__/
