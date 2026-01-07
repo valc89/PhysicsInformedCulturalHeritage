@@ -10,3 +10,4 @@
 **/__pycache__/
 **/rock_poisson_inverse/
 **/column_parabolic_inverse/
+**/trainPOD/
