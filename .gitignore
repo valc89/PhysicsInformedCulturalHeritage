@@ -4,6 +4,9 @@
 *.csv
 *.pkl
 *.pth
+*.png
 
 **/lightning_logs/
 **/__pycache__/
+**/rock_poisson_inverse/
+**/column_parabolic_inverse/
