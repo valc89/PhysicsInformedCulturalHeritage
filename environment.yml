@@ -1,4 +1,4 @@
-name: sissaunisa
+name: pich
 channels:
   - conda-forge
   - nvidia

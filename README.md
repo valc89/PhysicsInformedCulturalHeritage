@@ -19,3 +19,33 @@ The framework, shown in [Figure 1](#framework-architecture), is designed to assi
 ![Framework architecture](docs/images/arch.png)
 
 **Figure 1 –** Overview of the Physics-Informed Cultural Heritage framework, illustrating the integration of IoT, physics-based models, and AI components.
+
+## Reference
+
+If you use this repository, please cite:
+
+## Installation
+
+Clone the repository:
+
+```bash
+git clone https://github.com/valc89/PhysicsInformedCulturalHertage.git
+cd PhysicsInformedCulturalHeritage
+```
+
+Create the *conda* environment from the provided environment.yml file:
+
+```bash
+conda env create -f environment.yml
+```
+
+Active the environment
+
+```bash
+conda activate pich
+```
+
+> **Notes**
+>
+> - The provided *conda* environment ensures reproducibility of all experiments presented in the reference paper.
+> - All dependencies are specified in `environment.yml`.
