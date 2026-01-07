@@ -108,20 +108,38 @@ class PODReduction(object):
         return sol_num, sol
 
     def plot_eigenvalues(self, total = True, save=True, filename="plot_eig.png"):
+        params = {'legend.fontsize': 'x-large',
+                'axes.labelsize': 'x-large',
+                'axes.titlesize':'x-large',
+                'xtick.labelsize':'medium',
+                'ytick.labelsize':'medium'}
+        plt.rcParams.update(params)
         y = np.array(self.eigenvalues)
         n = self.num_basis
         x = np.arange(1, n+1)
-        plt.plot(x, y, "*-")
+        plt.plot(x, y/y[0], "*-")
         plt.title("Eigenvalues")
-        plt.xlabel("order")
-        plt.ylabel("$\lambda$")
+        plt.xlabel(r"$k$")
+        plt.ylabel(r"$\lambda$")
         plt.yscale("log")
         plt.tight_layout()
         if save:
             plt.savefig(filename, transparent=True)
+            df = pd.DataFrame(
+            data=y,
+            columns=["lambda"],
+        )
+            df.to_csv(filename[:-4]+".csv", sep=";", index=False)
         plt.show()
 
     def plot_samples(self, figsize = (12, 6), save=True, filename="samples_plot.png"):
+        # Large font in plots
+        params = {'legend.fontsize': 'x-large',
+                'axes.labelsize': 'x-large',
+                'axes.titlesize':'x-large',
+                'xtick.labelsize':'medium',
+                'ytick.labelsize':'medium'}
+        plt.rcParams.update(params)
         if not self._training_set is None:
             if not self._testing_set is None:
                 if self.total_parameters != 1:
@@ -242,13 +260,13 @@ class PODReduction(object):
         _, ax = plt.subplots(nrows=n, ncols=2, figsize=fig_size)
         for count in range(n):
             ax[count, 0].plot(x, self.training_set[:, count], "^")
-            ax[count, 0].set_title(f"Training set parameter $\mu_{count+1}$")
+            ax[count, 0].set_title(f"Training set $\mu_{count+1}$")
             ax[count, 0].set_xlabel("samples")
             ax[count, 0].set_ylabel(f"$\mu_{count+1}$")
             ax[count, 0].set_ylim(self.mu_range[count])
 
             ax[count, 1].plot(x_t, self.testing_set[:, count], "^r")
-            ax[count, 1].set_title(f"Testing set parameter $\mu_{count+1}$")
+            ax[count, 1].set_title(f"Testing set $\mu_{count+1}$")
             ax[count, 1].set_xlabel("samples")
             ax[count, 1].set_ylabel(f"$\mu_{count+1}$")
             ax[count, 1].set_ylim(self.mu_range[count])
@@ -264,7 +282,7 @@ class PODReduction(object):
         _, ax = plt.subplots(nrows=n, ncols=1, figsize=fig_size)
         for count in range(n):
             ax[count].plot(x, self.training_set[:, count], "^")
-            ax[count].set_title(f"Training set parameter $\mu_{count+1}$")
+            ax[count].set_title(f"Training set $\mu_{count+1}$")
             ax[count].set_xlabel("samples")
             ax[count].set_ylabel(f"$\mu_{count+1}$")
             ax[count].set_ylim(self.mu_range[count])
@@ -280,13 +298,13 @@ class PODReduction(object):
         count = 0
         _, ax = plt.subplots(nrows=1, ncols=2, figsize=fig_size)
         ax[0].plot(x, self.training_set[:, count], "^")
-        ax[0].set_title(f"Training set parameter $\mu_{count+1}$")
+        ax[0].set_title(f"Training set $\mu_{count+1}$")
         ax[0].set_xlabel("samples")
         ax[0].set_ylabel(f"$\mu_{count+1}$")
         ax[0].set_ylim(self.mu_range[count])
 
         ax[1].plot(x_t, self.testing_set[:, count], "^r")
-        ax[1].set_title(f"Testing set parameter $\mu_{count+1}$")
+        ax[1].set_title(f"Testing set $\mu_{count+1}$")
         ax[1].set_xlabel("samples")
         ax[1].set_ylabel(f"$\mu_{count+1}$")
         ax[1].set_ylim(self.mu_range[count])
@@ -301,7 +319,7 @@ class PODReduction(object):
         x = np.arange(self.training_set.shape[0])
         _, ax = plt.subplots(nrows=1, ncols=1, figsize=fig_size)
         ax.plot(x, self.training_set[:, count], "^")
-        ax.set_title(f"Training set parameter $\mu_{count+1}$")
+        ax.set_title(f"Training set $\mu_{count+1}$")
         ax.set_xlabel("samples")
         ax.set_ylabel(f"$\mu_{count+1}$")
         ax.set_ylim(self.mu_range[count])
