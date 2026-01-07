@@ -11,3 +11,9 @@
 **/rock_poisson_inverse/
 **/column_parabolic_inverse/
 **/trainPOD/
+
+# Allow documentation images
+!docs/images/*.png
+!docs/images/*.jpg
+!docs/images/*.jpeg
+!docs/images/*.svg
