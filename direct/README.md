@@ -10,9 +10,7 @@ The workflows implemented here focus on **physics-constrained inference** withou
 - `tp3/` – Direct PINN solution of a heat transfer problem on a 3D rock geometry  
 - `tp4/` – Direct PINN solution of a Poisson system on a 3D column geometry, with and without data integration  
 
-Each test problem provides a self-contained and reproducible pipeline, including geometry acquisition, problem setup, PINN-based inference, and visualization of results.
-
-### The proposed frameowrk enabled modules
+### The proposed framework enabled modules
 
 ![Direct Framework architecture](../docs/images/pinn.png)
 
