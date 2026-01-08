@@ -12,6 +12,10 @@ The workflows implemented here focus on **physics-constrained inference** withou
 
 Each test problem provides a self-contained and reproducible pipeline, including geometry acquisition, problem setup, PINN-based inference, and visualization of results.
 
+### The proposed frameowrk enabled modules
+
+![Direct Framework architecture](docs/images/pinn.png)
+
 ---
 
 ## TP3 – Heat Equation on a 3D Rock
