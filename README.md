@@ -33,11 +33,11 @@ The following table maps the **architectural layers and modules (Figure 1)** to 
 | Architecture Layer / Module | Role in the Framework | Repository Components | Main Technologies |
 |-----------------------------|-----------------------|-----------------------|------------------|
 | **Acquisition - 3D Model Module** | Geometry preprocessing and domain definition for inference | `model_acquisition/` | Blender API (`bpy`), Mesh processing (`gmsh`), PINA API (`pina`) |
-| **Inference Engine – FEM Submodule** | Full-Order solution of PDEs | `fem_problems/` | FEniCS, FEM |
-| **Inference Engine – ROM Saving** | Model order reduction and efficient surrogate modeling | `fem_problems/`, `inverse/tp*/01_OfflineStage` | POD |
-| **Inference Engine – PINN Module (Inverse)** | Parameter identification from simulated IoT data | `inverse/tp*/02_SolveInverse` | PINNs, SciML |
-| **Inference Engine – PINN Module (Direct)** | Physics-constrained field reconstruction | `direct/tp3/`, `direct/tp4/` | PINNs, SciML |
-| **Inference Engine – Online Solver Submodule** | Fast reduced-order simulation and error evaluation | `inverse/tp*/03_OnlineStage` | ROM, POD |
+| **Inference Engine – FEM Submodule** | Full-Order solution of PDEs | `fem_problems/` | FEM |
+| **Inference Engine – ROM Saving** | Model order reduction and efficient surrogate modeling | `inverse/tp*/01_OfflineStage` | POD |
+| **Inference Engine – PINN Module (Inverse)** | Parameter identification from simulated IoT data | `inverse/tp*/02_SolveInverse` | PINNs |
+| **Inference Engine – PINN Module (Direct)** | Physics-constrained field reconstruction | `direct/tp*/` | PINNs |
+| **Inference Engine – Online Solver Submodule** | Fast reduced-order simulation and error evaluation | `inverse/tp*/03_OnlineStage` | POD |
 | **Application Layer - Simulation** | Simulation inspection and visualization | `.xdmf` outputs | ParaView |
 
 
