@@ -5,9 +5,22 @@ integrating **IoT data** (simulated in the examples of the repository),
 **Physics-Informed Neural Networks (PINNs)**, and **Reduced Order Models (ROMs)**.  
 The goal is to enable **data- and physics-driven analysis directly on realistic digital replicas**, supporting scalable and physically consistent Digital Twin applications.
 
+## Table of Contents
+- [Architecture](#architecture)
+  - [Framework Overview](#framework-overview)
+- [Repository Structure](#repository-structure)
+- [Scope](#scope)
+  - [Architecture–Repository Mapping](#architecture–repository-mapping)
+- [Installation](#installation)
+- [Reproducible Experiments and Notebooks](#reproducible-experiments-and-notebooks)
+  - [Summary of Test Problems](#summary-of-test-problems)
+  - [Inverse Problems](#inverse-problems-inversetp1-inversetp2)
+  - [Direct Problems](#direct-problems-directtp3-directtp4)
+- [Reference](#reference)
+
 ## Architecture
 
-<a name="framework-architecture"></a>
+### Framework Overview
 
 ![Framework architecture](docs/images/arch.png)
 
@@ -50,7 +63,7 @@ If you use this repository, please cite:
 Clone the repository:
 
 ```bash
-git clone https://github.com/valc89/PhysicsInformedCulturalHertage.git
+git clone https://github.com/valc89/PhysicsInformedCulturalHeritage.git
 cd PhysicsInformedCulturalHeritage
 ```
 
