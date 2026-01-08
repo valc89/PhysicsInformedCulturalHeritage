@@ -53,11 +53,6 @@ The following table maps the **architectural layers and modules (Figure 1)** to 
 | **Inference Engine – Online Solver Submodule** | Fast reduced-order simulation and error evaluation | `inverse/tp*/03_OnlineStage` | POD |
 | **Application Layer - Simulation** | Simulation inspection and visualization | `.xdmf` outputs | ParaView |
 
-
-## Reference
-
-If you use this repository, please cite:
-
 ## Installation
 
 Clone the repository:
@@ -169,3 +164,7 @@ The folders `direct/tp3` and `direct/tp4` focus on **direct problems**, where th
 ---
 
 Overall, these notebooks provide a **guided and progressive entry point** to the framework, demonstrating how **3D geometry acquisition, simulated IoT data, physics-informed learning, and reduced-order modeling** are combined to perform inference and simulation on complex digital assets.
+
+## Reference
+
+If you use this repository, please cite:
