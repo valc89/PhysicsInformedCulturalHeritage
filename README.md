@@ -26,6 +26,21 @@ The goal is to enable **data- and physics-driven analysis directly on realistic 
 
 The repository implements the **core inference backbone** of the architecture, demonstrating how **geometry-aware preprocessing, physics-based solvers, learning-based inference, and model reduction** can be coherently combined to operate directly on complex 3D domains.
 
+### Architecture–Repository Mapping
+
+The following table maps the **architectural layers and modules (Figure 1)** to their concrete implementation in the repository, highlighting how each conceptual component is instantiated in code.
+
+| Architecture Layer / Module | Role in the Framework | Repository Components | Main Technologies |
+|-----------------------------|-----------------------|-----------------------|------------------|
+| **Acquisition - 3D Model Module** | Geometry preprocessing and domain definition for inference | `model_acquisition/` | Blender API (`bpy`), Mesh processing (`gmsh`), PINA API (`pina`) |
+| **Inference Engine – FEM Submodule** | Full-Order solution of PDEs | `fem_problems/` | FEniCS, FEM |
+| **Inference Engine – ROM Saving** | Model order reduction and efficient surrogate modeling | `fem_problems/`, `inverse/tp*/01_OfflineStage` | POD |
+| **Inference Engine – PINN Module (Inverse)** | Parameter identification from simulated IoT data | `inverse/tp*/02_SolveInverse` | PINNs, SciML |
+| **Inference Engine – PINN Module (Direct)** | Physics-constrained field reconstruction | `direct/tp3/`, `direct/tp4/` | PINNs, SciML |
+| **Inference Engine – Online Solver Submodule** | Fast reduced-order simulation and error evaluation | `inverse/tp*/03_OnlineStage` | ROM, POD |
+| **Application Layer - Simulation** | Simulation inspection and visualization | `.xdmf` outputs | ParaView |
+
+
 ## Reference
 
 If you use this repository, please cite:
