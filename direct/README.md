@@ -14,7 +14,7 @@ Each test problem provides a self-contained and reproducible pipeline, including
 
 ### The proposed frameowrk enabled modules
 
-![Direct Framework architecture](docs/images/pinn.png)
+![Direct Framework architecture](../docs/images/pinn.png)
 
 ---
 
