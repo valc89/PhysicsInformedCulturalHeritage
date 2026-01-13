@@ -27,11 +27,9 @@ class SystemParabolicFEM(object):
     def _initialize_fem_problem(self, mu, t_0, T):
         if abs(t_0-0) < np.finfo(np.float64).eps:
             h = T / (self.temp_points-1)
-            # Relativo alle condizioni iniziali
             u_n = fe.Function(self.V)
             u_n.interpolate(self._initial_condition(mu))
             initial = np.array(u_n.vector().get_local())
-            # Memorizzare soluzione
             lst_solution_matrix = []
             for i in range(self.num_eq):
                 lst_solution_matrix.append(np.zeros((self.n_mesh_p, self.temp_points)))
@@ -65,7 +63,6 @@ class SystemParabolicFEM(object):
     def _problem_forms(self, mu, u_n, t_point, h):
         u = fe.TrialFunction(self.V)
         v = fe.TestFunction(self.V)
-        # Definizione della forma bilineare e lineare per l'equazione del calore
         a = u[0]*v[0]*fe.dx + h*fe.dot(fe.grad(u[0]), fe.grad(v[0]))*fe.dx + u[1]*v[1]*fe.dx + h*fe.dot(fe.grad(u[1]), fe.grad(v[1]))*fe.dx
 
         exp_f = fe.Expression(
@@ -169,15 +166,15 @@ class SystemParabolicFEM(object):
         err_a = np.max(np.linalg.norm(approx - exact, axis=1))
         err_r = err_a / np.max(np.linalg.norm(exact, axis=1))
         if text:
-            print(f"Errore Assoluto: {err_a:.4e}")
-            print(f"Errore Relativo: {err_r:.4e}")
+            print(f"Absolute Error: {err_a:.4e}")
+            print(f"Relative Error: {err_r:.4e}")
         return err_a, err_r
     
     def compute_error(self, lst_approx, lst_exact, text=True):
         lst_err_a, lst_err_r = [], []
         for i in range(self.num_eq):
             if text:
-                print(f"ERRORI EQUAZIONE {i+1}")
+                print(f"ERROR EQUATION {i+1}")
             err_a, err_r = self._compute_error_matrix(lst_approx[i], lst_exact[i], text)
             lst_err_a.append(err_a)
             lst_err_r.append(err_r)

@@ -95,8 +95,8 @@ class PoissonFEM(object):
         err_a = np.linalg.norm(approx-exact)
         err_r = err_a / np.linalg.norm(exact)
         if text:
-            print(f"Errore Assoluto: {err_a:.4e}")
-            print(f"Errore Relativo: {err_r:.4e}")
+            print(f"Absolute Error: {err_a:.4e}")
+            print(f"Relative Error: {err_r:.4e}")
         return err_a, err_r
     
     @property

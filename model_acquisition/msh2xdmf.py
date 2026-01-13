@@ -1,53 +1,107 @@
+"""Gmsh .msh to XDMF/HDF5 conversion module."""
 import os
 import gmsh
 import h5py
 import meshio
 import numpy as np
 import pandas as pd
-import xml.etree.ElementTree as ET
 
 class Msh2Xdmf(object):
+    """
+    Utility class to convert a Gmsh ``.msh`` file into XDMF/HDF5 files.
 
-    def __init__(self, filename, model_name = "Model"):
+    The class uses Gmsh to load a mesh, extracts node coordinates and tetrahedral
+    connectivity, stores them in an HDF5 file, and creates an XDMF file pointing
+    to the HDF5 datasets. It also provides utilities to:
+    - refine a mesh with Gmsh,
+    - export node coordinates to CSV,
+    - create additional XDMF/HDF5 files including static or time-dependent
+      solution datasets.
+    """
+
+    def __init__(self, filename, model_name = "model"):
+        """
+        Initialize the :class:`Msh2Xdmf` class.
+
+        :param str filename: Path to the input ``.msh`` file.
+        :param str model_name: Base name used for output files
+            (e.g., ``<model_name>.h5`` and ``<model_name>.xdmf``).
+            Default is ``"model"``.
+        """
         self.filename = filename
         self.model_name = model_name
         self._num_mesh_points = None
         self._coord_mesh_points = None
     
     def _initialize_gmsh(self):
-        # Inizializza gmsh
+        """
+        Initialize the Gmsh API.
+
+        :return: None
+        :rtype: None
+        """
         gmsh.initialize()
     
     def _load_mesh(self, dim=3):
-        # Carica il file .msh in gmsh
+        """
+        Load the mesh in Gmsh and store node information.
+
+        The method:
+        - opens ``self.filename`` with Gmsh,
+        - retrieves mesh nodes and stores their count and coordinates,
+        - generates the mesh for the specified dimension.
+
+        :param int dim: Mesh dimension used in ``gmsh.model.mesh.generate``.
+            Default is ``3``.
+        :return: None
+        :rtype: None
+        """
         gmsh.open(self.filename)
         nodeTags, coord, _ = gmsh.model.mesh.getNodes()
         self._num_mesh_points = len(nodeTags)
         self._coord_mesh_points = coord
-        # Sincronizza il modello in modo che tutte le modifiche siano visibili
-        gmsh.model.mesh.generate(dim)  # 3 indica mesh 3D
+        gmsh.model.mesh.generate(dim)
 
     def _extract_mesh_data(self, dim=3, index_element=4):
-        # Recupera i nodi (vertici) e le celle (elementi) dalla mesh di gmsh
+        """
+        Extract points and tetrahedral connectivity from the loaded mesh.
+
+        The method:
+        - reads nodes and reshapes coordinates to ``(N, dim)``,
+        - reads mesh elements and selects the element block whose type matches
+          ``index_element``,
+        - reshapes the tetrahedral connectivity to ``(M, 4)`` and converts it
+          from 1-based to 0-based indexing.
+
+        :param int dim: Spatial dimension used to reshape node coordinates.
+            Default is ``3``.
+        :param int index_element: Gmsh element type code to select. Default is
+            ``4`` (tetrahedra in Gmsh).
+        :return: Tuple ``(points, tetra_elements)``.
+        :rtype: tuple[numpy.ndarray, numpy.ndarray]
+        """
         node_tags, node_coords, _ = gmsh.model.mesh.getNodes()
-        # Estrarre le coordinate dei nodi e organizzarle in un array (x, y, z)
         points = node_coords.reshape(-1, dim)
 
-        # Recupera le connettività delle celle (elementi) di tipo tetraedrico (4 nodi per cella)
         element_types, _, element_nodes = gmsh.model.mesh.getElements()
-
-        # Trova l'indice degli elementi tetraedrici (che in GMSH è il tipo 4 per tetraedri)
-        tetra_index = np.where(element_types == index_element)[0][0]  # 4 è il codice GMSH per tetraedro
-
-        # Estrai i nodi degli elementi tetraedrici e riorganizza in array di (4 nodi per elemento)
+        tetra_index = np.where(element_types == index_element)[0][0]
         tetra_elements = element_nodes[tetra_index].reshape(-1, 4)
         
-        # Se necessario, sottrai 1 per convertire da 1-based a 0-based (usato in meshio)
         tetra_elements -= 1
         
         return points, tetra_elements
 
     def _refine_mesh(self, num_refine):
+        """
+        Refine the current mesh using Gmsh.
+
+        After refinement, the method updates the stored number of nodes and
+        node coordinates.
+
+        :param int num_refine: Number of refinement iterations.
+        :return: None
+        :rtype: None
+        """
         if num_refine > 0:
             for _ in range(num_refine):
                 gmsh.model.mesh.refine()
@@ -56,13 +110,22 @@ class Msh2Xdmf(object):
             self._coord_mesh_points = coord
 
     def _extract_physical_groups(self):
-        # Recupera i gruppi fisici definiti nella mesh
+        """
+        Extract physical groups and their entity tags from the loaded mesh.
+
+        For each physical group, the method retrieves its name. If the name is
+        empty, a default name is assigned. The returned dictionary maps group
+        names to entity tags.
+
+        :return: Dictionary mapping physical group names to entity tags.
+        :rtype: dict[str, list[int]]
+        """
         physical_groups = gmsh.model.getPhysicalGroups()
         physical_entities = {}
 
         for dim, tag in physical_groups:
             name = gmsh.model.getPhysicalName(dim, tag)
-            if not name:  # Se il nome è vuoto, assegna un nome predefinito
+            if not name:
                 name = f"unnamed_group_dim{dim}_tag{tag}"
             entity_tags = gmsh.model.getEntitiesForPhysicalGroup(dim, tag)
             physical_entities[name] = entity_tags
@@ -70,23 +133,43 @@ class Msh2Xdmf(object):
         return physical_entities
 
     def _save_hdf5(self, points, tetra_elements, physical_groups):
-        # Creare un file HDF5 con la struttura corretta
+        """
+        Save mesh data and physical groups into an HDF5 file.
+
+        The method creates:
+        - ``/Mesh/mesh/geometry`` containing node coordinates,
+        - ``/Mesh/mesh/topology`` containing tetra connectivity,
+        - ``/Mesh/physical_groups`` containing datasets for physical groups.
+
+        :param numpy.ndarray points: Node coordinates array.
+        :param numpy.ndarray tetra_elements: Tetrahedral connectivity array.
+        :param dict physical_groups: Physical groups mapping (name -> entities).
+        :return: None
+        :rtype: None
+        """
         with h5py.File(self.model_name + ".h5", "w") as f:
-            # Creare il gruppo root -> Mesh -> mesh
             mesh_group = f.create_group("/Mesh/mesh")
-            
-            # Salvare le coordinate (geometry) e la connettività (topology)
             mesh_group.create_dataset("geometry", data=points)
             mesh_group.create_dataset("topology", data=tetra_elements)
-            
-            # Salvare i gruppi fisici
             physical_group_grp = f.create_group("/Mesh/physical_groups")
             for name, entities in physical_groups.items():
-                # Convertire il nome in bytes
                 physical_group_grp.create_dataset(name.encode('utf-8'), data=np.array(entities))
 
     def _create_xdmf_content(self, points, tetra_elements, dim=3):
-        # Creare il contenuto XDMF con la dicitura partition:0, senza includere i gruppi fisici
+        """
+        Create the XDMF content referencing the generated HDF5 datasets.
+
+        The generated XDMF includes a single Uniform Grid with:
+        - a tetrahedral topology referencing ``/Mesh/mesh/topology``,
+        - a geometry referencing ``/Mesh/mesh/geometry``.
+
+        :param numpy.ndarray points: Node coordinates array.
+        :param numpy.ndarray tetra_elements: Tetrahedral connectivity array.
+        :param int dim: Spatial dimension written in the geometry DataItem.
+            Default is ``3``.
+        :return: None
+        :rtype: None
+        """
         self.xdmf_content = f"""<?xml version="1.0" ?>
         <Xdmf Version="3.0">
           <Domain>
@@ -107,25 +190,56 @@ class Msh2Xdmf(object):
         """
 
     def _save_xdmf(self):
-        # Salvare il file XDMF
+        """
+        Save the generated XDMF content to disk.
+
+        :return: None
+        :rtype: None
+        """
         with open(self.model_name + ".xdmf", "w") as f:
             f.write(self.xdmf_content)
     
     def _save_msh_file(self, refined_mesh_file):
+        """
+        Save the current Gmsh mesh to a ``.msh`` file.
+
+        :param str refined_mesh_file: Output ``.msh`` file path.
+        :return: None
+        :rtype: None
+        """
         gmsh.write(refined_mesh_file)
 
     def _finalize_gmsh(self):
-        # Chiudi gmsh
+        """
+        Finalize the Gmsh API session.
+
+        :return: None
+        :rtype: None
+        """
         gmsh.finalize()
 
     def to_xdmf(self, dim=3, index_element=4, num_refine=0):
-        # Processo completo di conversione
+        """
+        Run the full conversion pipeline from ``.msh`` to XDMF/HDF5.
+
+        The method:
+        - initializes Gmsh and loads the mesh,
+        - optionally refines the mesh and overwrites the ``.msh`` file,
+        - extracts points and tetra connectivity,
+        - extracts physical groups,
+        - writes the HDF5 and XDMF output files,
+        - finalizes Gmsh.
+
+        :param int dim: Spatial dimension. Default is ``3``.
+        :param int index_element: Gmsh element type code. Default is ``4``.
+        :param int num_refine: Number of refinement iterations. Default is ``0``.
+        :return: None
+        :rtype: None
+        """
         self._initialize_gmsh()
         self._load_mesh(dim)
-        # Raffina la mesh se richiesto
         if num_refine > 0:
             self._refine_mesh(num_refine)
-            # Salva il file .msh raffinato, se richiesto
             self._save_msh_file(self.filename)
         points, tetra_elements = self._extract_mesh_data(dim, index_element)
         physical_groups = self._extract_physical_groups()
@@ -135,22 +249,30 @@ class Msh2Xdmf(object):
         self._finalize_gmsh()
     
     def export_vertices(self, mesh_file, filename = "mesh_points", sep=";", num = None, random_state = 42):
-        # Inizializzazione di gmsh
+        """
+        Export mesh node coordinates to a CSV file.
+
+        The method loads a ``.msh`` file with Gmsh, retrieves the nodes, builds a
+        DataFrame with columns ``x, y, z``, optionally samples ``num`` rows, and
+        writes the output to ``<filename>.csv``.
+
+        :param str mesh_file: Path to the input mesh file.
+        :param str filename: Output file name without extension.
+            Default is ``"mesh_points"``.
+        :param str sep: CSV separator. Default is ``";"``.
+        :param int | None num: If provided and valid, number of random nodes to export.
+            If ``None`` all nodes are exported. Default is ``None``.
+        :param int random_state: Random seed used when sampling. Default is ``42``.
+        :return: None
+        :rtype: None
+        """
         gmsh.initialize()
-
-        # Caricamento del file .msh (sostituire con il percorso del proprio file)
         gmsh.open(mesh_file)
-
-        # Recuperare i nodi (vertici) della mesh
         nodeTags, node_coords, _ = gmsh.model.mesh.getNodes()
         self._num_mesh_points = len(nodeTags)
-
-        # Dividere le coordinate in coordinate x, y, z
         x_coords = node_coords[::3]
         y_coords = node_coords[1::3]
         z_coords = node_coords[2::3]
-
-        # Creare un DataFrame con le coordinate
         df = pd.DataFrame(
             {
                 "x": x_coords,
@@ -158,8 +280,6 @@ class Msh2Xdmf(object):
                 "z": z_coords
             }
         )
-
-        # Terminare gmsh
         gmsh.finalize()
         if num == None or num > len(df) or num <= 0:
             df.to_csv(filename + ".csv", sep, index=False)
@@ -167,97 +287,106 @@ class Msh2Xdmf(object):
             df = df.sample(n=num, random_state=random_state)
             df.to_csv(filename + ".csv", sep, index=False)
     
-    # Metodo per verificare la coerenza della soluzione con la mesh
     def _check_solution_consistency(self, solution, num_nodes):
+        """
+        Check that a solution array matches the number of mesh nodes.
+
+        :param numpy.ndarray solution: Solution array to validate.
+        :param int num_nodes: Expected number of nodes.
+        :raises ValueError: If the solution length does not match ``num_nodes``.
+        :return: ``True`` if consistent.
+        :rtype: bool
+        """
         if solution.shape[0] != num_nodes:
             raise ValueError(f"Il numero di nodi nella soluzione ({solution.shape[0]}) non corrisponde al numero di nodi nella mesh ({num_nodes}).")
         return True
     
     def add_solution(self, solution_steps, add_info, solution_name="solution", steps=None):
         """
-        Aggiunge una soluzione, temporale o statica, utilizzando la mesh da un file XDMF esistente.
-        Se `steps` è fornito, viene considerata una soluzione temporale, altrimenti una soluzione statica.
+        Add a static or time-dependent solution and generate new XDMF/HDF5 files.
 
-        Args:
-            solution_steps: array numpy con soluzioni (per ciascuno step temporale o una statica).
-            add_info: stringa aggiuntiva per il nome del file salvato.
-            solution_name: il nome del dataset per la soluzione.
-            steps: lista o array di valori temporali che definiscono gli step temporali (opzionale).
+        If ``steps`` is ``None``, the method treats the input as a static solution.
+        Otherwise it creates a time series solution where each step is stored
+        under a different HDF5 group.
+
+        :param numpy.ndarray | list solution_steps: Solution data. The expected
+            shape depends on whether the solution is static or time-dependent.
+        :param str add_info: String appended to output file names.
+        :param str solution_name: Dataset name used to store the solution.
+            Default is ``"solution"``.
+        :param list | int | None steps: Time steps. If ``int``, it is converted
+            to ``range(steps)``. If ``None``, the solution is static.
+        :raises ValueError: If the number of provided steps does not match the
+            number of solutions.
+        :return: None
+        :rtype: None
         """
         if steps is None:
-            # Soluzione statica
             if solution_steps.ndim == 1:
-                print("Aggiunta soluzione statica")
+                print("Addition of static solution")
                 self._add_solution_static(solution_steps, add_info, "Scalar", solution_steps.ndim, solution_name)
             else:
                 self._add_solution_static(solution_steps, add_info, "Vector", solution_steps.ndim, solution_name)
         else:
-            # Soluzione temporale
             if isinstance(steps, int):
                 steps = range(steps)
             if not isinstance(solution_steps, list):
                 if solution_steps.shape[0] == len(steps):
-                    print("Aggiunta soluzione temporale")
+                    print("Addition of time-dependent solution")
                     self._add_solution_time(solution_steps, add_info, "Scalar", 1, solution_name, steps)
                 else:
-                    raise ValueError("Numero di steps temporali non corrisponde al numero di soluzioni.")
+                    raise ValueError("Number of time steps not coherent with number of solutions.")
             else:
                 if solution_steps[0].shape[1] == len(steps):
-                    print("Aggiunta soluzione temporale e vettoriale")
+                    print("Addition of vectorial time-dependent solution.")
                     self._add_solution_time(solution_steps, add_info, "Vector", len(solution_steps), solution_name, steps)
                 else:
-                    raise ValueError("Numero di steps temporali non corrisponde al numero di soluzioni.")
+                    raise ValueError("Number of time steps not coherent with number of solutions.")
 
     
     def _add_solution_static(self, solution_step, add_info, attribute, leng_input, solution_name="solution"):
         """
-        Aggiunge una soluzione statica utilizzando la mesh da un file XDMF esistente,
-        e aggiorna i file HDF5 e XDMF. Il nome del file salvato include `add_info`.
+        Add a static solution to a mesh and generate a new XDMF/HDF5 pair.
 
-        Args:
-            solution_step: array numpy con la soluzione statica (unica).
-            add_info: stringa aggiuntiva per il nome del file salvato.
-            solution_name: il nome del dataset per la soluzione.
+        The method reads the base mesh from ``<model_name>.xdmf``, writes a new
+        HDF5 file containing the mesh and the solution, and generates a new XDMF
+        file referencing the stored datasets.
+
+        :param numpy.ndarray solution_step: Static solution array.
+        :param str add_info: String appended to output file names.
+        :param str attribute: XDMF AttributeType (e.g., ``"Scalar"``, ``"Vector"``).
+        :param int leng_input: Number of components per node written in XDMF.
+        :param str solution_name: Dataset name used to store the solution.
+            Default is ``"solution"``.
+        :return: None
+        :rtype: None
         """
-        # Carica la mesh dal file XDMF esistente
         mesh = meshio.read(self.model_name + ".xdmf")
-
-        # Leggere la geometria e la topologia dalla mesh caricata
         points = mesh.points
         tetra_elements = mesh.cells_dict["tetra"]
-
-        # Creare il file HDF5 con la mesh e la soluzione statica
         h5_filepath = self.model_name + add_info + ".h5"
         with h5py.File(h5_filepath, "w") as f:
-            # Creare il gruppo /Mesh/mesh per la mesh statica
             mesh_group = f.create_group("/Mesh/mesh")
-
-            # Salvare la geometria (coordinate dei nodi) e la topologia
             mesh_group.create_dataset("geometry", data=points)
             mesh_group.create_dataset("topology", data=tetra_elements)
-
-            # Verifica che la soluzione abbia la dimensione corretta (stessa dei nodi)
             self._check_solution_consistency(solution_step, points.shape[0])
-            
-            # Creare il gruppo VisualisationVector per la soluzione statica
             vis_group = f.create_group("/VisualisationVector")
-
-            # Salvare la soluzione
             vis_group.create_dataset(solution_name, data=solution_step)
-
-        # Aggiorna il file XDMF con la mesh e la soluzione statica
+        
         self._create_static_xdmf_file_with_template(solution_name, add_info, tetra_elements, points, attribute, leng_input)
 
     def _create_static_xdmf_file_with_template(self, solution_name, add_info, tetra_elements, points, attribute, leng_input):
         """
-        Crea o aggiorna un file XDMF con la struttura fornita per includere la mesh e la soluzione statica.
-        Il nome del file XDMF include `add_info`.
+        Create an XDMF file including a static solution attribute.
 
-        Args:
-            solution_name: nome del dataset della soluzione.
-            add_info: stringa aggiuntiva per il nome del file salvato.
-            tetra_elements: la connettività della mesh (topologia).
-            points: le coordinate dei nodi della mesh (geometria).
+        :param str solution_name: Dataset name used for the solution.
+        :param str add_info: String appended to output file names.
+        :param numpy.ndarray tetra_elements: Tetrahedral connectivity array.
+        :param numpy.ndarray points: Node coordinates array.
+        :param str attribute: XDMF AttributeType (e.g., ``"Scalar"``, ``"Vector"``).
+        :param int leng_input: Number of components per node written in XDMF.
+        :return: None
+        :rtype: None
         """
         xdmf_filepath = self.model_name + add_info + ".xdmf"
         h5_filename = self.model_name + add_info + ".h5"
@@ -282,7 +411,6 @@ class Msh2Xdmf(object):
         </Grid>
         """
 
-        # Struttura finale del file XDMF
         xdmf_content = f"""<?xml version="1.0"?>
         <!DOCTYPE Xdmf SYSTEM "Xdmf.dtd" []>
         <Xdmf Version="3.0" xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -292,90 +420,83 @@ class Msh2Xdmf(object):
         </Xdmf>
         """
 
-        # Salvare il contenuto nel file XDMF
         with open(xdmf_filepath, "w") as f:
             f.write(xdmf_content)
     
 
     def _add_solution_time(self, solution_steps, add_info, attribute, leng_input, solution_name="solution", steps=None):
         """
-        Aggiunge una soluzione per ciascuno step temporale utilizzando la mesh da un file XDMF esistente,
-        e aggiorna i file HDF5 e XDMF. Il nome del file salvato include `add_info`.
-        
-        Args:
-            xdmf_input_file: file XDMF esistente contenente solo la mesh.
-            solution_steps: un array numpy con soluzioni per ogni step temporale.
-            add_info: stringa aggiuntiva per il nome del file salvato.
-            solution_name: il nome del dataset per la soluzione.
-            steps: lista o array di valori temporali che definiscono gli step.
-        """
-        # Carica la mesh dal file XDMF esistente
-        mesh = meshio.read(self.model_name + ".xdmf")
+        Add a time-dependent solution to a mesh and generate a new XDMF/HDF5 pair.
 
-        # Leggere la geometria e la topologia dalla mesh caricata
+        The method reads the base mesh from ``<model_name>.xdmf`` and writes a new
+        HDF5 file where each time step stores the mesh under ``/Mesh/<step>/mesh``
+        and the solution under ``/VisualisationVector/<step>/``.
+
+        :param numpy.ndarray | list solution_steps: Solution data (array or list
+            of arrays depending on the calling code path).
+        :param str add_info: String appended to output file names.
+        :param str attribute: XDMF AttributeType (e.g., ``"Scalar"``, ``"Vector"``).
+        :param int leng_input: Number of components per node written in XDMF.
+        :param str solution_name: Dataset name used to store the solution.
+            Default is ``"solution"``.
+        :param list | None steps: Time step values.
+        :return: None
+        :rtype: None
+        """
+        mesh = meshio.read(self.model_name + ".xdmf")
         points = mesh.points
         tetra_elements = mesh.cells_dict["tetra"]
 
-        # Creare il file HDF5 con la mesh e le soluzioni
         h5_filepath = self.model_name + add_info + ".h5"
         with h5py.File(h5_filepath, "w") as f:
             if isinstance(solution_steps, list):
                 step = 0.
                 for i in range(solution_steps[0].shape[1]):
-                    # Creare il gruppo /Mesh/{step}/mesh per ogni step
                     step_group_path = f"/Mesh/{int(step)}/mesh"
                     mesh_group = f.create_group(step_group_path)
 
-                    # Salvare la geometria (coordinate dei nodi) e la topologia per ogni step
                     mesh_group.create_dataset("geometry", data=points)
                     mesh_group.create_dataset("topology", data=tetra_elements)
 
-                    # Verifica che ogni matrice di soluzione abbia la dimensione corretta
                     for el in solution_steps:
                         self._check_solution_consistency(el, points.shape[0])
 
-                    # Creare il gruppo VisualisationVector per ogni soluzione in questo step
                     vis_group_path = f"/VisualisationVector/{int(step)}"
                     vis_group = f.create_group(vis_group_path)
 
-                    # Salvare la singola matrice di soluzione per questo step
                     vis_group.create_dataset(f"{solution_name}", data=np.concatenate([el[:, i].reshape(el.shape[0], 1) for el in solution_steps], axis=-1))
                     step += 1
             else:
                 for i, (step, step_solution) in enumerate(zip(steps, solution_steps)):
-                    # Creare il gruppo /Mesh/{step}/mesh per ogni step
                     step_group_path = f"/Mesh/{int(step)}/mesh"
                     mesh_group = f.create_group(step_group_path)
 
-                    # Salvare la geometria (coordinate dei nodi) e la topologia per ogni step
                     mesh_group.create_dataset("geometry", data=points)
                     mesh_group.create_dataset("topology", data=tetra_elements)
 
-                    # Verifica che la soluzione abbia la dimensione corretta (stessa dei nodi)
                     self._check_solution_consistency(step_solution, points.shape[0])
                     
-                    # Creare il gruppo VisualisationVector per ogni step
                     vis_group_path = f"/VisualisationVector/{int(step)}"
                     vis_group = f.create_group(vis_group_path)
 
-                    # Salvare la soluzione per questo step
                     dataset_name = f"{solution_name}"
                     vis_group.create_dataset(dataset_name, data=step_solution)
 
-        # Aggiorna il file XDMF con la mesh e le soluzioni per ciascun step
         self._create_xdmf_file_with_template(solution_name, steps, add_info, tetra_elements, points, attribute, leng_input)
 
     def _create_xdmf_file_with_template(self, solution_name, steps, add_info, tetra_elements, points, attribute, leng_input):
         """
-        Crea o aggiorna un file XDMF con la struttura fornita per includere la mesh e le soluzioni per ciascun step temporale.
-        Il nome del file XDMF include `add_info`.
+        Create an XDMF time series file including a solution attribute per step.
 
-        Args:
-            solution_name: nome del dataset della soluzione.
-            steps: lista o array di valori temporali per gli step.
-            add_info: stringa aggiuntiva per il nome del file salvato.
-            tetra_elements: la connettività della mesh (topologia).
-            points: le coordinate dei nodi della mesh (geometria).
+        :param str solution_name: Dataset name used for the solution.
+        :param list steps: Time step values used in the XDMF ``Time`` tags.
+        :param str add_info: String appended to output file names.
+        :param numpy.ndarray tetra_elements: Tetrahedral connectivity array.
+        :param numpy.ndarray points: Node coordinates array.
+        :param str attribute: XDMF AttributeType (e.g., ``"Scalar"``, ``"Vector"``).
+        :param int leng_input: Number of components per node written in XDMF.
+        :return: None
+        :rtype: None
         """
         xdmf_filepath = self.model_name + add_info + ".xdmf"
         h5_filename = self.model_name + add_info + ".h5"
@@ -404,7 +525,6 @@ class Msh2Xdmf(object):
             """
             grids += grid_content
 
-        # Struttura finale del file XDMF con il tag "Collection" per gli steps temporali
         xdmf_content = f"""<?xml version="1.0"?>
         <!DOCTYPE Xdmf SYSTEM "Xdmf.dtd" []>
         <Xdmf Version="3.0" xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -416,44 +536,56 @@ class Msh2Xdmf(object):
         </Xdmf>
         """
 
-        # Salvare il contenuto nel file XDMF
         with open(xdmf_filepath, "w") as f:
             f.write(xdmf_content)
 
 
     def reset_files(self, add_info):
         """
-        Cancella i file XDMF e HDF5 associati al modello, utilizzando la stringa aggiuntiva `add_info`.
+        Delete XDMF and HDF5 files generated with the given suffix.
 
-        Args:
-            add_info: stringa aggiuntiva per il nome del file da cancellare.
+        :param str add_info: String appended to the output file names to select
+            which files must be removed.
+        :return: None
+        :rtype: None
         """
-        # Costruire i percorsi dei file da cancellare
         xdmf_filepath = self.model_name + add_info + ".xdmf"
         h5_filepath = self.model_name + add_info + ".h5"
 
-        # Cancellare il file XDMF se esiste
         if os.path.exists(xdmf_filepath):
             os.remove(xdmf_filepath)
-            print(f"File {xdmf_filepath} cancellato.")
+            print(f"File {xdmf_filepath} deleted.")
         else:
-            print(f"File {xdmf_filepath} non trovato.")
+            print(f"File {xdmf_filepath} not found.")
 
-        # Cancellare il file HDF5 se esiste
         if os.path.exists(h5_filepath):
             os.remove(h5_filepath)
-            print(f"File {h5_filepath} cancellato.")
+            print(f"File {h5_filepath} deleted.")
         else:
-            print(f"File {h5_filepath} non trovato.")
+            print(f"File {h5_filepath} not found.")
     
     @property
     def num_mesh_points(self):
+        """
+        Return the number of mesh points stored by the last mesh loading/refinement.
+
+        :raises AttributeError: If the attribute was not set yet.
+        :return: Number of mesh nodes.
+        :rtype: int
+        """
         if self._num_mesh_points is None:
             raise AttributeError("Attribute not defined.")
         return self._num_mesh_points
 
     @property
     def coord_mesh_points(self):
+        """
+        Return the flattened mesh node coordinates stored by the last mesh loading/refinement.
+
+        :raises AttributeError: If the attribute was not set yet.
+        :return: Mesh node coordinates.
+        :rtype: list[float] | numpy.ndarray
+        """
         if self._coord_mesh_points is None:
-            raise AttributeError("Atribute not defined.")
+            raise AttributeError("Attribute not defined.")
         return self._coord_mesh_points
