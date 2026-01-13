@@ -52,6 +52,6 @@ The folder `tp4/` addresses a **system of Poisson PDEs** defined on a 3D column 
 
 3. **Comparison and visualization**
    - Analysis of the impact of data integration  
-   - Visualization of solutions via `.xdmf` files  
+   - Visualization of solutions via `.xdmf` files
 
 This test problem demonstrates the flexibility of PINNs in combining **purely physics-based** and **hybrid physics–data-driven** inference on complex 3D domains.
